@@ -20,11 +20,14 @@ classifiers = [
 ]
 
 dependencies = [
-    "anibridge-providers",
+    "anibridge-providers @ git+https://github.com/anibridge/anibridge-providers.git",
 ]
 
 [tool.hatch.build]
 packages = ["src/anibridge_example_provider"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.ruff]
 indent-width = 4
@@ -40,9 +43,6 @@ select = ["B", "D", "DOC", "E", "F", "I", "RUF", "SIM", "UP", "W"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
-
-[tool.uv.sources]
-anibridge-providers = { git = "https://github.com/anibridge/anibridge-providers.git" }
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
