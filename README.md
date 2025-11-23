@@ -1,0 +1,1 @@
+# anibridge-provider-template
