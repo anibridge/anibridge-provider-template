@@ -1,0 +1,52 @@
+[project]
+name = "anibridge-example-provider"
+version = "0.1.0"
+description = "Example provider for the AniBridge project."
+readme = "README.md"
+requires-python = ">=3.14"
+
+authors = [
+    { name = "Elias Benbourenane", email = "eliasbenbourenane@gmail.com" },
+]
+maintainers = [
+    { name = "Elias Benbourenane", email = "eliasbenbourenane@gmail.com" },
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "anibridge-providers",
+]
+
+[tool.hatch.build]
+packages = ["src/anibridge_example_provider"]
+
+[tool.ruff]
+indent-width = 4
+line-length = 88
+
+[tool.ruff.format]
+docstring-code-format = true
+indent-style = "space"
+quote-style = "double"
+
+[tool.ruff.lint]
+select = ["B", "D", "DOC", "E", "F", "I", "RUF", "SIM", "UP", "W"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.uv.sources]
+anibridge-providers = { git = "https://github.com/anibridge/anibridge-providers.git" }
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["hatch>=1.15.1", "hatch-vcs>=0.5.0", "ruff>=0.14.4"]
