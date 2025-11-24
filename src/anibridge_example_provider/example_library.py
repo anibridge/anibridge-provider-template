@@ -12,6 +12,7 @@ from anibridge_providers.library import (
     MediaKind,
 )
 from anibridge_providers.provider import User
+from starlette.requests import Request
 
 
 class ExampleLibrarySection(LibrarySection["ExampleLibraryProvider"]):
@@ -57,6 +58,7 @@ class ExampleLibraryMovie(LibraryMovie["ExampleLibraryProvider"]):
         """Construct the in-memory library movie instance."""
         self.key = key
         self.title = title
+        self.media_kind = MediaKind.MOVIE
         self.section_ref = section_ref
         self.last_modified = last_modified
         self._provider = _provider
@@ -119,6 +121,8 @@ class ExampleLibraryMovie(LibraryMovie["ExampleLibraryProvider"]):
 class ExampleLibraryProvider(LibraryProvider):
     """Simple library provider that serves two hard-coded movies."""
 
+    NAMESPACE = "example-library"
+
     def __init__(self, *, config: dict | None = None) -> None:
         """Construct the provider with optional configuration overrides."""
         self._config = config or {}
@@ -174,23 +178,7 @@ class ExampleLibraryProvider(LibraryProvider):
             ),
         )
 
-    async def initialize(self) -> None:
-        """No-op initialize hook because the provider is in-memory."""
-        return None
-
-    def user(self) -> User | None:
-        """Return the static user descriptor."""
-        return self._user
-
-    async def clear_cache(self) -> None:
-        """No caching is used, so the hook is a no-op."""
-        return None
-
-    async def close(self) -> None:
-        """Release resources; nothing to do for the example provider."""
-        return None
-
-    async def get_sections(self) -> Sequence[ExampleLibrarySection]:
+    async def get_sections(self) -> Sequence[LibrarySection[ExampleLibraryProvider]]:
         """Return the single in-memory section."""
         return self._sections
 
@@ -219,3 +207,27 @@ class ExampleLibraryProvider(LibraryProvider):
             items = [item for item in items if item.key in allowed]
 
         return tuple(items)
+
+    async def parse_webhook(self, request: Request) -> tuple[bool, Sequence[str]]:
+        """Indicate that webhooks are not supported by the example provider."""
+        raise NotImplementedError("Webhooks are not supported by the example provider.")
+
+    ###########################################################################
+    ### Anything beyond this point does not implement required API methods. ###
+    ###########################################################################
+
+    async def initialize(self) -> None:
+        """No-op initialize hook because the provider is in-memory."""
+        return None
+
+    def user(self) -> User | None:
+        """Return the static user descriptor."""
+        return self._user
+
+    async def clear_cache(self) -> None:
+        """No caching is used, so the hook is a no-op."""
+        return None
+
+    async def close(self) -> None:
+        """Release resources; nothing to do for the example provider."""
+        return None

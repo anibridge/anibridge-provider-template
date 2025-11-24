@@ -6,13 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from anibridge_providers import ListProvider, register_list_provider
-from anibridge_providers.list import (
-    ListEntry,
-    ListMedia,
-    ListMediaType,
-    ListStatus,
-    ProviderBackupEntries,
-)
+from anibridge_providers.list import ListEntry, ListMedia, ListMediaType, ListStatus
 from anibridge_providers.provider import User
 
 
@@ -174,6 +168,8 @@ class ExampleListEntry(ListEntry["ExampleListProvider"]):
 class ExampleListProvider(ListProvider):
     """Simple provider that stores two entries in memory."""
 
+    NAMESPACE = "example-list"
+
     def __init__(self, *, config: dict | None = None) -> None:
         """Construct the provider and seed its demo entries."""
         self._config = config or {}
@@ -181,8 +177,148 @@ class ExampleListProvider(ListProvider):
             key=self._config.get("user_key", "demo-user"),
             title=self._config.get("user_title", "Demo List User"),
         )
-        self._entries: dict[str, ExampleListEntry] = {}
+        self._entries: dict[str, ListEntry] = {}
         self._build_example_entries()
+
+    async def backup_list(self) -> str:
+        """Serialize all entries into a JSON blob."""
+        payload = {
+            "user": self._user.key,
+            "entries": [self._encode_entry(entry) for entry in self._entries.values()],
+        }
+        return json.dumps(payload, separators=(",", ":"))
+
+    async def build_entry(self, key: str) -> ListEntry[ExampleListProvider]:
+        """Return an entry ready for creation, building media on the fly."""
+        media = ExampleListMedia(
+            key=key,
+            title=self._config.get("default_title", key.replace("-", " ").title()),
+            media_type=ListMediaType.TV,
+            _provider=self,
+        )
+        return ExampleListEntry(
+            key=key,
+            title=media.title,
+            _provider=self,
+            _media=media,
+        )
+
+    async def delete_entry(self, key: str) -> None:
+        """Delete the entry if it exists."""
+        self._entries.pop(key, None)
+
+    async def get_entry(self, key: str) -> ListEntry[ExampleListProvider] | None:
+        """Return a stored entry by its media key."""
+        return self._entries.get(key)
+
+    # async def get_entries_batch(
+    #     self, keys: Sequence[str]
+    # ) -> Sequence[ListEntry[ExampleListProvider] | None]:
+    #     """Retrieve multiple list entries by their media keys."""
+    #     # Batch retrieval is not a requirement, but it will greatly improve
+    #     # performance for large lists.
+    #     entries: list[ListEntry[Self] | None] = []
+    #     for key in keys:
+    #         entry = await self.get_entry(key)
+    #         entries.append(entry)
+    #     return entries
+
+    async def restore_list(self, backup: str) -> None:
+        """Optionally deserialize and restore serialized backup entries."""
+        raise NotImplementedError("List restore not implemented for this provider.")
+
+    async def search(self, query: str) -> Sequence[ListEntry[ExampleListProvider]]:
+        """Return entries whose titles contain the substring query."""
+        needle = query.lower()
+        results = [
+            entry for entry in self._entries.values() if needle in entry.title.lower()
+        ]
+        return tuple(results)
+
+    async def update_entry(
+        self, key: str, entry: ListEntry[ExampleListProvider]
+    ) -> ListEntry[ExampleListProvider] | None:
+        """Store the provided entry and return it."""
+        self._entries[key] = entry
+        return entry
+
+    # async def update_entries_batch(
+    #     self, entries: Sequence[ListEntry[Self]]
+    # ) -> Sequence[ListEntry[Self] | None]:
+    #     """Store multiple entries and return the updated instances."""
+    #     # Batch updates are not a requirement, but they will greatly improve
+    #     # performance for large lists.
+    #     updated_entries: list[ListEntry[Self] | None] = []
+    #     for entry in entries:
+    #         updated_entry = await self.update_entry(entry.media().key, entry)
+    #         updated_entries.append(updated_entry)
+    #     return updated_entries
+
+    ###########################################################################
+    ### Anything beyond this point does not implement required API methods. ###
+    ###########################################################################
+
+    async def clear_cache(self) -> None:
+        """The provider is cache-less, so nothing needs to happen here."""
+        return None
+
+    async def close(self) -> None:
+        """Release resources; there are none for the example provider."""
+        return None
+
+    async def initialize(self) -> None:
+        """No-op initialize hook for the in-memory provider."""
+        return None
+
+    def user(self) -> User | None:
+        """Return the static user descriptor."""
+        return self._user
+
+    def _encode_entry(self, entry: ListEntry[ExampleListProvider]) -> dict[str, Any]:
+        """Return a JSON-serializable dictionary for the entry."""
+        return {
+            "key": entry.key,
+            "title": entry.title,
+            "status": entry.status.value if entry.status else None,
+            "progress": entry.progress,
+            "repeats": entry.repeats,
+            "review": entry.review,
+            "user_rating": entry.user_rating,
+            "started_at": entry.started_at.isoformat() if entry.started_at else None,
+            "finished_at": entry.finished_at.isoformat() if entry.finished_at else None,
+            "media_type": entry.media().media_type.value,
+            "total_units": entry.total_units,
+        }
+
+    def _decode_entry(self, data: dict[str, Any]) -> ListEntry[ExampleListProvider]:
+        """Convert a serialized dictionary back into an entry instance."""
+        media = ExampleListMedia(
+            key=data["key"],
+            title=data.get("title", data["key"]),
+            media_type=ListMediaType(data.get("media_type", ListMediaType.TV.value)),
+            _provider=self,
+            _total_units=data.get("total_units"),
+        )
+        entry = ExampleListEntry(
+            key=data["key"],
+            title=data.get("title", data["key"]),
+            _provider=self,
+            _media=media,
+            _progress=data.get("progress"),
+            _repeats=data.get("repeats"),
+            _review=data.get("review"),
+            _status=ListStatus(data["status"]) if data.get("status") else None,
+            _user_rating=data.get("user_rating"),
+            _started_at=self._parse_date(data.get("started_at")),
+            _finished_at=self._parse_date(data.get("finished_at")),
+        )
+        return entry
+
+    def _parse_date(self, value: str | None) -> datetime | None:
+        """Parse an ISO timestamp if one is supplied."""
+        if value is None:
+            return None
+        return datetime.fromisoformat(value)
 
     def _build_example_entries(self) -> None:
         """Populate two static entries used throughout the example."""
@@ -225,126 +361,3 @@ class ExampleListProvider(ListProvider):
                 _user_rating=None,
             ),
         }
-
-    async def initialize(self) -> None:
-        """No-op initialize hook for the in-memory provider."""
-        return None
-
-    def user(self) -> User | None:
-        """Return the static user descriptor."""
-        return self._user
-
-    async def clear_cache(self) -> None:
-        """The provider is cache-less, so nothing needs to happen here."""
-        return None
-
-    async def close(self) -> None:
-        """Release resources; there are none for the example provider."""
-        return None
-
-    async def delete_entry(self, key: str) -> None:
-        """Delete the entry if it exists."""
-        self._entries.pop(key, None)
-
-    async def get_entry(self, key: str) -> ExampleListEntry | None:
-        """Return a stored entry by its media key."""
-        return self._entries.get(key)
-
-    async def build_entry(self, key: str) -> ExampleListEntry:
-        """Return an entry ready for creation, building media on the fly."""
-        media = ExampleListMedia(
-            key=key,
-            title=self._config.get("default_title", key.replace("-", " ").title()),
-            media_type=ListMediaType.TV,
-            _provider=self,
-        )
-        return ExampleListEntry(
-            key=key,
-            title=media.title,
-            _provider=self,
-            _media=media,
-        )
-
-    async def search(self, query: str) -> Sequence[ExampleListEntry]:
-        """Return entries whose titles contain the substring query."""
-        needle = query.lower()
-        results = [
-            entry for entry in self._entries.values() if needle in entry.title.lower()
-        ]
-        return tuple(results)
-
-    async def update_entry(
-        self, key: str, entry: ExampleListEntry
-    ) -> ExampleListEntry | None:
-        """Store the provided entry and return it."""
-        self._entries[key] = entry
-        return entry
-
-    async def backup_list(self) -> str:
-        """Serialize all entries into a JSON blob."""
-        payload = {
-            "user": self._user.key,
-            "entries": [self._encode_entry(entry) for entry in self._entries.values()],
-        }
-        return json.dumps(payload, separators=(",", ":"))
-
-    async def restore_entries(self, entries: Sequence[object]) -> None:
-        """Restore entries from a decoded payload sequence."""
-        for raw_entry in entries:
-            if not isinstance(raw_entry, dict):
-                continue
-            entry = self._decode_entry(raw_entry)
-            self._entries[entry.key] = entry
-
-    def deserialize_backup_entries(
-        self, payload: dict[str, Any]
-    ) -> ProviderBackupEntries:
-        """Convert a JSON payload into provider entries."""
-        entries = payload.get("entries", []) if isinstance(payload, dict) else []
-        return ProviderBackupEntries(entries=entries, user=payload.get("user"))
-
-    def _encode_entry(self, entry: ExampleListEntry) -> dict[str, Any]:
-        """Return a JSON-serializable dictionary for the entry."""
-        return {
-            "key": entry.key,
-            "title": entry.title,
-            "status": entry.status.value if entry.status else None,
-            "progress": entry.progress,
-            "repeats": entry.repeats,
-            "review": entry.review,
-            "user_rating": entry.user_rating,
-            "started_at": entry.started_at.isoformat() if entry.started_at else None,
-            "finished_at": entry.finished_at.isoformat() if entry.finished_at else None,
-            "media_type": entry.media().media_type.value,
-            "total_units": entry.total_units,
-        }
-
-    def _decode_entry(self, data: dict[str, Any]) -> ExampleListEntry:
-        """Convert a serialized dictionary back into an entry instance."""
-        media = ExampleListMedia(
-            key=data["key"],
-            title=data.get("title", data["key"]),
-            media_type=ListMediaType(data.get("media_type", ListMediaType.TV.value)),
-            _provider=self,
-            _total_units=data.get("total_units"),
-        )
-        entry = ExampleListEntry(
-            key=data["key"],
-            title=data.get("title", data["key"]),
-            _provider=self,
-            _media=media,
-            _progress=data.get("progress"),
-            _repeats=data.get("repeats"),
-            _review=data.get("review"),
-            _status=ListStatus(data["status"]) if data.get("status") else None,
-            _user_rating=data.get("user_rating"),
-            _started_at=self._parse_date(data.get("started_at")),
-            _finished_at=self._parse_date(data.get("finished_at")),
-        )
-        return entry
-
-    def _parse_date(self, value: str | None) -> datetime | None:
-        """Parse an ISO timestamp if one is supplied."""
-        if value is None:
-            return None
-        return datetime.fromisoformat(value)
