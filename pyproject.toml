@@ -20,7 +20,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "anibridge-providers @ git+https://github.com/anibridge/anibridge-providers.git",
+    "anibridge-library-interface @ git+https://github.com/anibridge/anibridge-library-interface.git",
+    "anibridge-list-interface @ git+https://github.com/anibridge/anibridge-list-interface.git",
 ]
 
 [tool.hatch.build]

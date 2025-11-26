@@ -5,9 +5,15 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-from anibridge_providers import ListProvider, register_list_provider
-from anibridge_providers.list import ListEntry, ListMedia, ListMediaType, ListStatus
-from anibridge_providers.provider import User
+from anibridge.list import (
+    ListEntry,
+    ListMedia,
+    ListMediaType,
+    ListProvider,
+    ListStatus,
+    ListUser,
+    list_provider,
+)
 
 
 class ExampleListMedia(ListMedia["ExampleListProvider"]):
@@ -164,7 +170,7 @@ class ExampleListEntry(ListEntry["ExampleListProvider"]):
         return self._media
 
 
-@register_list_provider("example-list")
+@list_provider
 class ExampleListProvider(ListProvider):
     """Simple provider that stores two entries in memory."""
 
@@ -173,7 +179,7 @@ class ExampleListProvider(ListProvider):
     def __init__(self, *, config: dict | None = None) -> None:
         """Construct the provider and seed its demo entries."""
         self._config = config or {}
-        self._user = User(
+        self._user = ListUser(
             key=self._config.get("user_key", "demo-user"),
             title=self._config.get("user_title", "Demo List User"),
         )
@@ -270,7 +276,7 @@ class ExampleListProvider(ListProvider):
         """No-op initialize hook for the in-memory provider."""
         return None
 
-    def user(self) -> User | None:
+    def user(self) -> ListUser | None:
         """Return the static user descriptor."""
         return self._user
 

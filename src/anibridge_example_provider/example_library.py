@@ -3,15 +3,16 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
-from anibridge_providers import LibraryProvider, register_library_provider
-from anibridge_providers.library import (
+from anibridge.library import (
     ExternalId,
     HistoryEntry,
     LibraryMovie,
+    LibraryProvider,
     LibrarySection,
+    LibraryUser,
     MediaKind,
+    library_provider,
 )
-from anibridge_providers.provider import User
 from starlette.requests import Request
 
 
@@ -117,7 +118,7 @@ class ExampleLibraryMovie(LibraryMovie["ExampleLibraryProvider"]):
         return self.section_ref
 
 
-@register_library_provider("example-library")
+@library_provider
 class ExampleLibraryProvider(LibraryProvider):
     """Simple library provider that serves two hard-coded movies."""
 
@@ -126,7 +127,7 @@ class ExampleLibraryProvider(LibraryProvider):
     def __init__(self, *, config: dict | None = None) -> None:
         """Construct the provider with optional configuration overrides."""
         self._config = config or {}
-        self._user = User(
+        self._user = LibraryUser(
             key=self._config.get("user_key", "demo-user"),
             title=self._config.get("user_title", "Demo Library User"),
         )
@@ -220,7 +221,7 @@ class ExampleLibraryProvider(LibraryProvider):
         """No-op initialize hook because the provider is in-memory."""
         return None
 
-    def user(self) -> User | None:
+    def user(self) -> LibraryUser | None:
         """Return the static user descriptor."""
         return self._user
 
